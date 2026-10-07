@@ -1,0 +1,208 @@
+.biometric-page,
+.biometric-loading {
+    min-height: 100vh;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 24px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ecfdf5,
+            #eff6ff
+        );
+}
+
+.biometric-card {
+    width: 100%;
+    max-width: 620px;
+
+    padding: 32px;
+
+    background: #ffffff;
+
+    border-radius: 18px;
+
+    box-shadow:
+        0 16px 45px
+        rgba(15, 23, 42, 0.12);
+}
+
+.biometric-header {
+    text-align: center;
+
+    margin-bottom: 22px;
+}
+
+.biometric-logo {
+    font-size: 44px;
+}
+
+.biometric-header h1 {
+    margin: 8px 0;
+
+    color: #0f172a;
+
+    font-size: 28px;
+}
+
+.biometric-header p {
+    margin: 0;
+
+    color: #64748b;
+}
+
+.biometric-status {
+    padding: 12px 14px;
+
+    margin-bottom: 16px;
+
+    border-radius: 8px;
+
+    background: #f1f5f9;
+
+    color: #334155;
+
+    text-align: center;
+}
+
+.biometric-error {
+    padding: 12px 14px;
+
+    margin-bottom: 16px;
+
+    border:
+        1px solid #fecaca;
+
+    border-radius: 8px;
+
+    background: #fee2e2;
+
+    color: #991b1b;
+}
+
+.camera-container {
+    position: relative;
+
+    width: 100%;
+
+    aspect-ratio: 4 / 3;
+
+    overflow: hidden;
+
+    margin-bottom: 16px;
+
+    border-radius: 14px;
+
+    background: #0f172a;
+}
+
+.camera-video {
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.camera-placeholder {
+    position: absolute;
+
+    inset: 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    color: #ffffff;
+
+    background: #0f172a;
+}
+
+.camera-placeholder-icon {
+    font-size: 54px;
+
+    margin-bottom: 8px;
+}
+
+.camera-placeholder p {
+    margin: 0;
+
+    color: #cbd5e1;
+}
+
+.biometric-primary,
+.biometric-secondary,
+.biometric-cancel {
+    width: 100%;
+
+    padding: 13px 16px;
+
+    margin-top: 10px;
+
+    border-radius: 8px;
+
+    font-size: 15px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.biometric-primary {
+    border: none;
+
+    background: #0f766e;
+
+    color: #ffffff;
+}
+
+.biometric-primary:hover:not(:disabled) {
+    background: #115e59;
+}
+
+.biometric-primary:disabled {
+    background: #94a3b8;
+
+    cursor: not-allowed;
+}
+
+.biometric-secondary {
+    border:
+        1px solid #cbd5e1;
+
+    background: #ffffff;
+
+    color: #475569;
+}
+
+.biometric-secondary:hover:not(:disabled) {
+    background: #f8fafc;
+}
+
+.biometric-cancel {
+    border: none;
+
+    background: transparent;
+
+    color: #64748b;
+}
+
+.biometric-cancel:hover {
+    color: #991b1b;
+}
+
+@media (max-width: 600px) {
+    .biometric-page {
+        padding: 12px;
+    }
+
+    .biometric-card {
+        padding: 22px 18px;
+    }
+}

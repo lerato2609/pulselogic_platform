@@ -1,0 +1,1226 @@
+// src/pages/Vitals.jsx
+import React, { useState, useEffect } from 'react';
+import { ref, onValue } from 'firebase/database';
+import { database } from '../firebase';
+import Sidebar from '../components/common/Sidebar';
+import Header from '../components/common/Header';
+import './styles/vitals.css';
+
+function Vitals() {
+  const [vitals, setVitals] = useState([]);
+  const [filteredVitals, setFilteredVitals] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [role, setRole] = useState('nurse');
+  const [user, setUser] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [showVitalModal, setShowVitalModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState('list');
+  const [showAddVital, setShowAddVital] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [riskAnalysis, setRiskAnalysis] = useState(null);
+  const [showRiskAnalysis, setShowRiskAnalysis] = useState(false);
+  const [vitalForm, setVitalForm] = useState({
+    patient_id: '',
+    temperature: '',
+    heart_rate: '',
+    blood_pressure_systolic: '',
+    blood_pressure_diastolic: '',
+    oxygen_saturation: '',
+    blood_glucose: '',
+    weight: '',
+    height: '',
+    respiratory_rate: '',
+    pain_score: '',
+    symptoms: [],
+    notes: ''
+  });
+  useEffect(() => {
+    const liveVitalsRef = ref(database, 'patientVitals/live');
+
+    const unsubscribe = onValue(liveVitalsRef, (snapshot) => {
+        const data = snapshot.val();
+
+        if (!data) return;
+
+        setVitalForm(prev => ({
+            ...prev,
+            heart_rate: data.heartRate ?? prev.heart_rate,
+            temperature: data.temperature ?? prev.temperature
+        }));
+    });
+
+    return () => unsubscribe();
+}, []);
+
+  // ─── SYMPTOMS LIST ───
+  const symptomsList = [
+    'Fever', 'Headache', 'Dizziness', 'Fatigue', 'Shortness of breath',
+    'Chest pain', 'Cough', 'Sore throat', 'Nausea', 'Vomiting',
+    'Abdominal pain', 'Diarrhea', 'Constipation', 'Joint pain',
+    'Muscle aches', 'Back pain', 'Blurred vision', 'Confusion',
+    'Swelling', 'Rash', 'Palpitations', 'Night sweats',
+    'Loss of appetite', 'Weight loss', 'Weight gain',
+    'Difficulty swallowing', 'Hoarseness', 'Runny nose', 'Sneezing',
+    'Wheezing', 'Blood in stool', 'Blood in urine', 'Bruising easily'
+  ];
+
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+  // ─── CLINICAL CONDITIONS & RECOMMENDATIONS ───
+  const getClinicalAnalysis = (vitals, symptoms) => {
+    const conditions = [];
+    const tests = [];
+    const warnings = [];
+
+    // ─── Check for Fever/Infection ───
+    if (vitals.temperature > 38.0) {
+      conditions.push({
+        name: 'Fever / Possible Infection',
+        severity: vitals.temperature > 39.0 ? 'high' : 'moderate',
+        description: 'Elevated body temperature indicates possible infection or inflammatory response.',
+        recommendation: 'Monitor temperature, consider blood cultures and CBC.',
+        tests: ['Complete Blood Count (CBC)', 'Blood Culture', 'C-Reactive Protein (CRP)']
+      });
+      warnings.push(`Fever: ${vitals.temperature}°C`);
+    }
+
+    // ─── Check for Hypertension ───
+    if (vitals.blood_pressure_systolic > 140 || vitals.blood_pressure_diastolic > 90) {
+      conditions.push({
+        name: vitals.blood_pressure_systolic >= 180 || vitals.blood_pressure_diastolic >= 120 
+          ? 'Hypertensive Crisis (Emergency)' 
+          : 'Hypertension (High Blood Pressure)',
+        severity: vitals.blood_pressure_systolic >= 180 || vitals.blood_pressure_diastolic >= 120 
+          ? 'emergency' 
+          : 'moderate',
+        description: 'Elevated blood pressure may indicate cardiovascular risk or underlying conditions.',
+        recommendation: 'Monitor blood pressure, consider ECG and renal function tests.',
+        tests: ['ECG', 'Lipid Profile', 'Renal Function Test', 'Echocardiogram']
+      });
+      warnings.push(`High BP: ${vitals.blood_pressure_systolic}/${vitals.blood_pressure_diastolic}`);
+    }
+
+    // ─── Check for Hypotension ───
+    if (vitals.blood_pressure_systolic < 90 || vitals.blood_pressure_diastolic < 60) {
+      conditions.push({
+        name: 'Hypotension (Low Blood Pressure)',
+        severity: 'moderate',
+        description: 'Low blood pressure may indicate dehydration, blood loss, or shock.',
+        recommendation: 'Monitor hydration, consider blood volume assessment.',
+        tests: ['Electrolyte Panel', 'Blood Glucose', 'ECG', 'Cardiac Enzymes']
+      });
+      warnings.push(`Low BP: ${vitals.blood_pressure_systolic}/${vitals.blood_pressure_diastolic}`);
+    }
+
+    // ─── Check for Tachycardia ───
+    if (vitals.heart_rate > 100) {
+      conditions.push({
+        name: 'Tachycardia (Fast Heart Rate)',
+        severity: vitals.heart_rate > 120 ? 'high' : 'moderate',
+        description: 'Elevated heart rate may indicate stress, fever, anemia, or cardiac issues.',
+        recommendation: 'Monitor rhythm, consider ECG and thyroid function tests.',
+        tests: ['ECG', 'Thyroid Function Test', 'Complete Blood Count (CBC)']
+      });
+      warnings.push(`Tachycardia: ${vitals.heart_rate} bpm`);
+    }
+
+    // ─── Check for Bradycardia ───
+    if (vitals.heart_rate < 60 && vitals.heart_rate > 0) {
+      conditions.push({
+        name: 'Bradycardia (Slow Heart Rate)',
+        severity: vitals.heart_rate < 50 ? 'high' : 'moderate',
+        description: 'Slow heart rate may indicate athletic heart or underlying cardiac conditions.',
+        recommendation: 'Monitor rhythm, consider ECG and cardiac assessment.',
+        tests: ['ECG', 'Cardiac Enzymes', 'Electrolyte Panel']
+      });
+      warnings.push(`Bradycardia: ${vitals.heart_rate} bpm`);
+    }
+
+    // ─── Check for Hypoxia ───
+    if (vitals.oxygen_saturation < 95) {
+      conditions.push({
+        name: vitals.oxygen_saturation < 90 ? 'Severe Hypoxemia (Emergency)' : 'Mild Hypoxemia',
+        severity: vitals.oxygen_saturation < 90 ? 'emergency' : 'moderate',
+        description: 'Low oxygen saturation may indicate respiratory or cardiovascular compromise.',
+        recommendation: 'Monitor oxygen levels, consider arterial blood gas and chest X-ray.',
+        tests: ['Arterial Blood Gas (ABG)', 'Chest X-Ray', 'Pulmonary Function Test']
+      });
+      warnings.push(`Low O₂: ${vitals.oxygen_saturation}%`);
+    }
+
+    // ─── Check for Diabetes/Hyperglycemia ───
+    if (vitals.blood_glucose > 7.0) {
+      conditions.push({
+        name: vitals.blood_glucose > 11.1 ? 'Hyperglycemia (High Blood Sugar - Emergency)' : 'Elevated Blood Sugar',
+        severity: vitals.blood_glucose > 11.1 ? 'emergency' : 'moderate',
+        description: 'Elevated blood glucose may indicate diabetes or metabolic disorder.',
+        recommendation: 'Monitor glucose, consider HbA1c and glucose tolerance test.',
+        tests: ['HbA1c', 'Fasting Blood Glucose', 'Glucose Tolerance Test', 'Urinalysis']
+      });
+      warnings.push(`High Glucose: ${vitals.blood_glucose} mmol/L`);
+    }
+
+    // ─── Check for Hypoglycemia ───
+    if (vitals.blood_glucose < 3.9 && vitals.blood_glucose > 0) {
+      conditions.push({
+        name: 'Hypoglycemia (Low Blood Sugar)',
+        severity: vitals.blood_glucose < 3.0 ? 'emergency' : 'moderate',
+        description: 'Low blood sugar may indicate insulin overdose or metabolic issues.',
+        recommendation: 'Monitor glucose, consider insulin assessment.',
+        tests: ['Blood Glucose', 'Insulin Level', 'C-Peptide Test']
+      });
+      warnings.push(`Low Glucose: ${vitals.blood_glucose} mmol/L`);
+    }
+
+    // ─── Check for Obesity ───
+    if (vitals.weight && vitals.height) {
+      const bmi = vitals.weight / ((vitals.height/100) ** 2);
+      if (bmi >= 30) {
+        conditions.push({
+          name: 'Obesity (BMI ≥ 30)',
+          severity: bmi >= 40 ? 'high' : 'moderate',
+          description: 'BMI indicates obesity, a risk factor for many chronic conditions.',
+          recommendation: 'Discuss lifestyle changes, consider metabolic assessment.',
+          tests: ['Lipid Profile', 'Blood Glucose', 'Thyroid Function Test']
+        });
+        warnings.push(`BMI: ${bmi.toFixed(1)}`);
+      }
+    }
+
+    // ─── Symptom-based conditions ───
+    if (symptoms.includes('Chest pain') || symptoms.includes('Palpitations')) {
+      conditions.push({
+        name: 'Cardiac Symptoms',
+        severity: 'high',
+        description: 'Chest pain/palpitations may indicate cardiac pathology.',
+        recommendation: 'Immediate cardiac evaluation.',
+        tests: ['ECG', 'Cardiac Enzymes (Troponin)', 'Echocardiogram', 'Stress Test']
+      });
+      warnings.push('Cardiac Symptoms Present');
+    }
+
+    if (symptoms.includes('Shortness of breath') || symptoms.includes('Wheezing')) {
+      conditions.push({
+        name: 'Respiratory Symptoms',
+        severity: vitals.oxygen_saturation < 95 ? 'emergency' : 'moderate',
+        description: 'Respiratory symptoms may indicate asthma, COPD, or pulmonary infection.',
+        recommendation: 'Respiratory assessment, consider pulmonary function tests.',
+        tests: ['Chest X-Ray', 'Pulmonary Function Test', 'Sputum Culture']
+      });
+      warnings.push('Respiratory Symptoms Present');
+    }
+
+    if (symptoms.includes('Blurred vision') || symptoms.includes('Headache')) {
+      conditions.push({
+        name: 'Neurological Symptoms',
+        severity: 'moderate',
+        description: 'Neurological symptoms require thorough assessment.',
+        recommendation: 'Consider neurological evaluation.',
+        tests: ['CT/MRI Brain', 'Neurological Examination', 'Blood Pressure Monitoring']
+      });
+      warnings.push('Neurological Symptoms Present');
+    }
+
+    // ─── Calculate Risk Score ───
+    let riskScore = 0;
+    conditions.forEach(cond => {
+      if (cond.severity === 'emergency') riskScore += 3;
+      else if (cond.severity === 'high') riskScore += 2;
+      else if (cond.severity === 'moderate') riskScore += 1;
+    });
+
+    // Determine overall risk
+    let riskLevel, riskLabel, riskColor, riskIcon;
+    if (riskScore >= 4 || warnings.some(w => w.includes('Emergency') || w.includes('Crisis'))) {
+      riskLevel = 'emergency';
+      riskLabel = '🚨 EMERGENCY - Immediate Medical Attention Required!';
+      riskColor = '#EF4444';
+      riskIcon = 'fa-exclamation-triangle';
+    } else if (riskScore >= 2) {
+      riskLevel = 'warning';
+      riskLabel = '⚠️ Warning - Medical Evaluation Recommended';
+      riskColor = '#F59E0B';
+      riskIcon = 'fa-exclamation-circle';
+    } else {
+      riskLevel = 'normal';
+      riskLabel = '✅ Normal - Continue Routine Monitoring';
+      riskColor = '#10B981';
+      riskIcon = 'fa-check-circle';
+    }
+
+    return {
+      riskLevel,
+      riskLabel,
+      riskColor,
+      riskIcon,
+      riskScore,
+      conditions,
+      tests: [...new Set(tests)],
+      warnings,
+      summary: `Found ${conditions.length} condition(s) requiring attention.`
+    };
+  };
+
+  // ─── AUTO-ANALYZE WHEN VITALS ARE ADDED ───
+  useEffect(() => {
+    if (vitalForm.patient_id && vitalForm.temperature) {
+      const vitals = {
+        temperature: parseFloat(vitalForm.temperature),
+        heart_rate: parseInt(vitalForm.heart_rate) || 0,
+        blood_pressure_systolic: parseInt(vitalForm.blood_pressure_systolic) || 0,
+        blood_pressure_diastolic: parseInt(vitalForm.blood_pressure_diastolic) || 0,
+        oxygen_saturation: parseInt(vitalForm.oxygen_saturation) || 0,
+        blood_glucose: parseFloat(vitalForm.blood_glucose) || 0,
+        weight: parseFloat(vitalForm.weight) || 0,
+        height: parseFloat(vitalForm.height) || 0
+      };
+      const analysis = getClinicalAnalysis(vitals, vitalForm.symptoms || []);
+      setRiskAnalysis(analysis);
+    }
+  }, [vitalForm.temperature, vitalForm.heart_rate, vitalForm.blood_pressure_systolic, 
+      vitalForm.blood_pressure_diastolic, vitalForm.oxygen_saturation, vitalForm.blood_glucose,
+      vitalForm.weight, vitalForm.height, vitalForm.symptoms]);
+
+  useEffect(() => {
+    const userData = JSON.parse(localStorage.getItem('user'));
+    if (userData) {
+      setUser(userData);
+      setRole(userData.role);
+    }
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/patients`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (data.success) {
+        setPatients(data.patients || data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  const fetchVitals = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/vitals`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setVitals(data.vitals || data.data || []);
+        setFilteredVitals(data.vitals || data.data || []);
+      } else {
+        setError(data.message || 'Failed to fetch vitals');
+      }
+    } catch (err) {
+      console.error('Fetch vitals error:', err);
+      setError('Error connecting to server');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── HEALTH ASSESSMENT FUNCTIONS ───
+
+  // Check Blood Pressure Status
+  const getBPStatus = (systolic, diastolic) => {
+    if (!systolic || !diastolic) { return { status: 'unknown', label: 'Unknown', color: '#6b7280' }; }
+    
+    if (systolic >= 180 || diastolic >= 120) {
+      return { status: 'hypertensive-crisis', label: '🚨 Hypertensive Crisis', color: '#EF4444' };
+    } else if (systolic >= 140 || diastolic >= 90) {
+      return { status: 'high', label: '⚠️ High BP', color: '#F59E0B' };
+    } else if (systolic >= 130 || diastolic >= 80) {
+      return { status: 'elevated', label: '⚠️ Elevated BP', color: '#F59E0B' };
+    } else if (systolic >= 90 && diastolic >= 60) {
+      return { status: 'normal', label: '✅ Normal BP', color: '#10B981' };
+    } else {
+      return { status: 'low', label: '⚠️ Low BP', color: '#EF4444' };
+    }
+  };
+
+  // Check Heart Rate Status
+  const getHeartRateStatus = (heartRate) => {
+    if (!heartRate) { return { status: 'unknown', label: 'Unknown', color: '#6b7280' }; }
+    
+    if (heartRate > 100) {
+      return { status: 'tachycardia', label: '⚠️ Tachycardia', color: '#EF4444' };
+    } else if (heartRate < 60) {
+      return { status: 'bradycardia', label: '⚠️ Bradycardia', color: '#F59E0B' };
+    } else {
+      return { status: 'normal', label: '✅ Normal HR', color: '#10B981' };
+    }
+  };
+
+  // Check Oxygen Saturation Status
+  const getO2Status = (o2) => {
+    if (!o2) { return { status: 'unknown', label: 'Unknown', color: '#6b7280' }; }
+    
+    if (o2 < 90) {
+      return { status: 'critical', label: '🚨 Critical O₂', color: '#EF4444' };
+    } else if (o2 < 95) {
+      return { status: 'warning', label: '⚠️ Low O₂', color: '#F59E0B' };
+    } else {
+      return { status: 'normal', label: '✅ Normal O₂', color: '#10B981' };
+    }
+  };
+
+  // Check Temperature Status
+  const getTemperatureStatus = (temp) => {
+    if (!temp) { return { status: 'unknown', label: 'Unknown', color: '#6b7280' }; }
+    
+    if (temp > 38.0) {
+      return { status: 'fever', label: '⚠️ Fever', color: '#EF4444' };
+    } else if (temp < 35.0) {
+      return { status: 'hypothermia', label: '⚠️ Hypothermia', color: '#F59E0B' };
+    } else {
+      return { status: 'normal', label: '✅ Normal Temp', color: '#10B981' };
+    }
+  };
+
+  // ─── OVERALL PATIENT RISK LEVEL ───
+  const getPatientRiskLevel = (vital) => {
+    let riskScore = 0;
+    const warnings = [];
+
+    // Check BP
+    const bpStatus = getBPStatus(vital.blood_pressure_systolic, vital.blood_pressure_diastolic);
+    if (bpStatus.status === 'hypertensive-crisis') {
+      riskScore += 3;
+      warnings.push('Hypertensive Crisis');
+    } else if (bpStatus.status === 'high' || bpStatus.status === 'low') {
+      riskScore += 2;
+      warnings.push(bpStatus.label);
+    }
+
+    // Check Heart Rate
+    const hrStatus = getHeartRateStatus(vital.heart_rate);
+    if (hrStatus.status === 'tachycardia' || hrStatus.status === 'bradycardia') {
+      riskScore += 2;
+      warnings.push(hrStatus.label);
+    }
+
+    // Check Oxygen
+    const o2Status = getO2Status(vital.oxygen_saturation);
+    if (o2Status.status === 'critical') {
+      riskScore += 3;
+      warnings.push('Critical Oxygen');
+    } else if (o2Status.status === 'warning') {
+      riskScore += 1;
+      warnings.push('Low Oxygen');
+    }
+
+    // Check Temperature
+    const tempStatus = getTemperatureStatus(vital.temperature);
+    if (tempStatus.status === 'fever' || tempStatus.status === 'hypothermia') {
+      riskScore += 1;
+      warnings.push(tempStatus.label);
+    }
+
+    // Determine risk level
+    let level = 'normal';
+    let label = '✅ Normal';
+    let color = '#10B981';
+    let icon = 'fa-check-circle';
+
+    if (riskScore >= 4) {
+      level = 'emergency';
+      label = '🚨 EMERGENCY';
+      color = '#EF4444';
+      icon = 'fa-exclamation-triangle';
+    } else if (riskScore >= 2) {
+      level = 'warning';
+      label = '⚠️ Warning';
+      color = '#F59E0B';
+      icon = 'fa-exclamation-circle';
+    }
+
+    return { level, label, color, icon, warnings, riskScore };
+  };
+
+  // ─── VITAL STATUS SUMMARY ───
+  const getVitalSummary = (vital) => {
+    const bp = getBPStatus(vital.blood_pressure_systolic, vital.blood_pressure_diastolic);
+    const hr = getHeartRateStatus(vital.heart_rate);
+    const o2 = getO2Status(vital.oxygen_saturation);
+    const temp = getTemperatureStatus(vital.temperature);
+    const risk = getPatientRiskLevel(vital);
+
+    return { bp, hr, o2, temp, risk };
+  };
+
+  const handleSearch = (term) => {
+    setSearchTerm(term);
+    if (!term.trim()) {
+      setFilteredVitals(vitals);
+      return;
+    }
+    const results = vitals.filter(v =>
+      v.patient_name?.toLowerCase().includes(term.toLowerCase()) ||
+      v.patient_id?.toString().includes(term)
+    );
+    setFilteredVitals(results);
+  };
+
+  const viewVitalDetails = (vital) => {
+    setSelectedPatient(vital);
+    setShowVitalModal(true);
+  };
+
+  const handleSymptomToggle = (symptom) => {
+    setVitalForm(prev => {
+      const symptoms = prev.symptoms.includes(symptom)
+        ? prev.symptoms.filter(s => s !== symptom)
+        : [...prev.symptoms, symptom];
+      return { ...prev, symptoms };
+    });
+  };
+
+  const handleAddVital = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/vitals`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...vitalForm,
+          recorded_by: user?.id || 1,
+          symptoms: vitalForm.symptoms.join(', ')
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert('✅ Vital signs recorded successfully!');
+        setShowAddVital(false);
+        setRiskAnalysis(null);
+        setVitalForm({
+          patient_id: '',
+          temperature: '',
+          heart_rate: '',
+          blood_pressure_systolic: '',
+          blood_pressure_diastolic: '',
+          oxygen_saturation: '',
+          blood_glucose: '',
+          weight: '',
+          height: '',
+          respiratory_rate: '',
+          pain_score: '',
+          symptoms: [],
+          notes: ''
+        });
+        fetchVitals();
+      } else {
+        setError(data.message || 'Failed to record vitals');
+      }
+    } catch (err) {
+      setError('Error recording vitals');
+      console.error('Add vital error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setVitalForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) { return 'N/A'; }
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-ZA', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getPatientName = (patientId) => {
+    const patient = patients.find(p => p.patient_id === patientId);
+    return patient ? `${patient.first_name} ${patient.last_name}` : `Patient #${patientId}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner">
+          <i className="fas fa-spinner fa-spin"></i>
+          <p>Loading vitals...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="vitals-container">
+      <Sidebar role={role} />
+      <div className="vitals-main">
+        <Header role={role} />
+        <div className="vitals-content">
+          {/* ─── HEADER ─── */}
+          <div className="vitals-header">
+            <div className="vitals-header-left">
+              <h1>💓 Vital Signs</h1>
+              <p className="vitals-subtitle">
+                {filteredVitals.length} record{filteredVitals.length !== 1 ? 's' : ''} found
+              </p>
+            </div>
+            <div className="vitals-header-right">
+              <button 
+                className={`view-toggle ${viewMode === 'list' ? 'active' : ''}`}
+                onClick={() => setViewMode('list')}
+                title="List View"
+              >
+                <i className="fas fa-list"></i>
+              </button>
+              <button 
+                className={`view-toggle ${viewMode === 'grid' ? 'active' : ''}`}
+                onClick={() => setViewMode('grid')}
+                title="Grid View"
+              >
+                <i className="fas fa-th-large"></i>
+              </button>
+              <button className="btn-primary" onClick={() => setShowAddVital(true)}>
+                <i className="fas fa-plus"></i> Record Vitals
+              </button>
+              <button className="btn-secondary" onClick={fetchVitals}>
+                <i className="fas fa-sync-alt"></i> Refresh
+              </button>
+            </div>
+          </div>
+
+          {/* ─── SEARCH ─── */}
+          <div className="search-bar">
+            <i className="fas fa-search"></i>
+            <input
+              type="text"
+              placeholder="Search by patient name..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="search-input"
+            />
+          </div>
+
+          {/* ─── ERROR MESSAGE ─── */}
+          {error && (
+            <div className="alert alert-error">
+              <i className="fas fa-exclamation-circle"></i>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* ─── VITALS LIST ─── */}
+          {filteredVitals.length === 0 ? (
+            <div className="empty-state">
+              <i className="fas fa-heartbeat" style={{ fontSize: '48px', color: '#ccc' }}></i>
+              <h3>No vitals recorded</h3>
+              <p>Click "Record Vitals" to add a new entry</p>
+            </div>
+          ) : viewMode === 'list' ? (
+            <div className="vitals-table-wrapper">
+              <table className="vitals-table">
+                <thead>
+                  <tr>
+                    <th>Patient</th>
+                    <th>BP Status</th>
+                    <th>Heart Rate</th>
+                    <th>O₂ Sat</th>
+                    <th>Temperature</th>
+                    <th>Recorded</th>
+                    <th>Risk Level</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredVitals.map((vital) => {
+                    const summary = getVitalSummary(vital);
+                    return (
+                      <tr key={vital.vital_id}>
+                        <td>
+                          <div className="patient-cell">
+                            <div className="patient-avatar">
+                              {vital.patient_name?.charAt(0) || 'P'}
+                            </div>
+                            <span className="patient-name">{vital.patient_name || getPatientName(vital.patient_id)}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ background: summary.bp.color + '20', color: summary.bp.color }}
+                          >
+                            {summary.bp.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ background: summary.hr.color + '20', color: summary.hr.color }}
+                          >
+                            {summary.hr.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ background: summary.o2.color + '20', color: summary.o2.color }}
+                          >
+                            {summary.o2.label}
+                          </span>
+                        </td>
+                        <td>
+                          <span 
+                            className="status-badge"
+                            style={{ background: summary.temp.color + '20', color: summary.temp.color }}
+                          >
+                            {summary.temp.label}
+                          </span>
+                        </td>
+                        <td>{formatDate(vital.recorded_at || vital.created_at)}</td>
+                        <td>
+                          <span 
+                            className="risk-badge"
+                            style={{ 
+                              background: summary.risk.color + '20', 
+                              color: summary.risk.color,
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            <i className={`fas ${summary.risk.icon}`}></i>
+                            {' ' + summary.risk.label}
+                          </span>
+                        </td>
+                        <td>
+                          <button 
+                            className="btn-view"
+                            onClick={() => viewVitalDetails(vital)}
+                            title="View Details"
+                          >
+                            <i className="fas fa-eye"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="vitals-grid">
+              {filteredVitals.map((vital) => {
+                const summary = getVitalSummary(vital);
+                return (
+                  <div key={vital.vital_id} className="vital-card">
+                    <div className="vital-card-header">
+                      <div className="vital-patient-info">
+                        <div className="vital-patient-avatar">
+                          {vital.patient_name?.charAt(0) || 'P'}
+                        </div>
+                        <div>
+                          <h4>{vital.patient_name || getPatientName(vital.patient_id)}</h4>
+                          <span className="vital-date">{formatDate(vital.recorded_at || vital.created_at)}</span>
+                        </div>
+                      </div>
+                      <span 
+                        className="risk-badge"
+                        style={{ 
+                          background: summary.risk.color + '20', 
+                          color: summary.risk.color,
+                          fontWeight: 'bold',
+                          fontSize: '0.75rem',
+                          padding: '0.2rem 0.6rem',
+                          borderRadius: '20px'
+                        }}
+                      >
+                        <i className={`fas ${summary.risk.icon}`}></i>
+                        {' ' + summary.risk.label}
+                      </span>
+                    </div>
+                    <div className="vital-card-body">
+                      <div className="vital-grid-mini">
+                        <div className="vital-item">
+                          <span className="vital-label">BP</span>
+                          <span className="vital-value" style={{ color: summary.bp.color }}>
+                            {vital.blood_pressure_systolic && vital.blood_pressure_diastolic ?
+                              `${vital.blood_pressure_systolic}/${vital.blood_pressure_diastolic}` :
+                              'N/A'
+                            }
+                          </span>
+                          <span className="vital-sub-label">{summary.bp.label}</span>
+                        </div>
+                        <div className="vital-item">
+                          <span className="vital-label">Heart Rate</span>
+                          <span className="vital-value" style={{ color: summary.hr.color }}>
+                            {vital.heart_rate || 'N/A'} bpm
+                          </span>
+                          <span className="vital-sub-label">{summary.hr.label}</span>
+                        </div>
+                        <div className="vital-item">
+                          <span className="vital-label">O₂ Sat</span>
+                          <span className="vital-value" style={{ color: summary.o2.color }}>
+                            {vital.oxygen_saturation || 'N/A'}%
+                          </span>
+                          <span className="vital-sub-label">{summary.o2.label}</span>
+                        </div>
+                        <div className="vital-item">
+                          <span className="vital-label">Temperature</span>
+                          <span className="vital-value" style={{ color: summary.temp.color }}>
+                            {vital.temperature || 'N/A'}°C
+                          </span>
+                          <span className="vital-sub-label">{summary.temp.label}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="vital-card-footer">
+                      <button 
+                        className="btn-view-details"
+                        onClick={() => viewVitalDetails(vital)}
+                      >
+                        <i className="fas fa-eye"></i> View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ─── ADD VITAL MODAL ─── */}
+      {showAddVital && (
+        <div className="modal-overlay" onClick={() => setShowAddVital(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2><i className="fas fa-heartbeat" style={{ color: '#534AB7' }}></i> Record Vital Signs</h2>
+              <button className="modal-close" onClick={() => setShowAddVital(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <form onSubmit={handleAddVital}>
+              <div className="modal-body">
+                <div className="form-group">
+                  <label>Patient *</label>
+                  <select
+                    name="patient_id"
+                    value={vitalForm.patient_id}
+                    onChange={handleInputChange}
+                    required
+                  >
+                    <option value="">Select Patient</option>
+                    {patients.map(p => (
+                      <option key={p.patient_id} value={p.patient_id}>
+                        {p.first_name} {p.last_name} - {p.phone_number || p.phone}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="vitals-form-grid">
+                  <div className="form-group">
+                    <label>Temperature (°C)</label>
+                    <input
+                      type="number"
+                      name="temperature"
+                      value={vitalForm.temperature}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 36.5"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Heart Rate (bpm)</label>
+                    <input
+                      type="number"
+                      name="heart_rate"
+                      value={vitalForm.heart_rate}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 72"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Systolic BP</label>
+                    <input
+                      type="number"
+                      name="blood_pressure_systolic"
+                      value={vitalForm.blood_pressure_systolic}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 120"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Diastolic BP</label>
+                    <input
+                      type="number"
+                      name="blood_pressure_diastolic"
+                      value={vitalForm.blood_pressure_diastolic}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 80"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Oxygen Saturation (%)</label>
+                    <input
+                      type="number"
+                      name="oxygen_saturation"
+                      value={vitalForm.oxygen_saturation}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 98"
+                      max="100"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Blood Glucose (mmol/L)</label>
+                    <input
+                      type="number"
+                      name="blood_glucose"
+                      value={vitalForm.blood_glucose}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 5.6"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Weight (kg)</label>
+                    <input
+                      type="number"
+                      name="weight"
+                      value={vitalForm.weight}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 70"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Height (cm)</label>
+                    <input
+                      type="number"
+                      name="height"
+                      value={vitalForm.height}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 175"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Respiratory Rate</label>
+                    <input
+                      type="number"
+                      name="respiratory_rate"
+                      value={vitalForm.respiratory_rate}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 16"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Pain Score (0-10)</label>
+                    <input
+                      type="number"
+                      name="pain_score"
+                      value={vitalForm.pain_score}
+                      onChange={handleInputChange}
+                      placeholder="e.g., 3"
+                      min="0"
+                      max="10"
+                    />
+                  </div>
+                </div>
+
+                {/* ─── SYMPTOMS SELECTION ─── */}
+                <div className="form-group full-width">
+                  <label>Symptoms (Select all that apply)</label>
+                  <div className="symptoms-grid">
+                    {symptomsList.map(symptom => (
+                      <label key={symptom} className="symptom-checkbox">
+                        <input
+                          type="checkbox"
+                          checked={vitalForm.symptoms.includes(symptom)}
+                          onChange={() => handleSymptomToggle(symptom)}
+                        />
+                        <span>{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="form-group full-width">
+                  <label>Notes</label>
+                  <textarea
+                    name="notes"
+                    value={vitalForm.notes}
+                    onChange={handleInputChange}
+                    placeholder="Additional observations..."
+                    rows="3"
+                  />
+                </div>
+
+                {/* ─── RISK ANALYSIS DISPLAY ─── */}
+                {riskAnalysis && riskAnalysis.conditions.length > 0 && (
+                  <div className="risk-analysis-section">
+                    <h4>📊 Clinical Analysis</h4>
+                    <div 
+                      className="risk-banner"
+                      style={{ 
+                        background: riskAnalysis.riskColor + '20',
+                        border: `2px solid ${riskAnalysis.riskColor}`,
+                        padding: '10px',
+                        borderRadius: '8px',
+                        marginBottom: '12px'
+                      }}
+                    >
+                      <h3 style={{ color: riskAnalysis.riskColor, margin: 0 }}>
+                        <i className={`fas ${riskAnalysis.riskIcon}`}></i> {riskAnalysis.riskLabel}
+                      </h3>
+                      <p style={{ margin: '5px 0 0', fontSize: '14px' }}>
+                        Risk Score: {riskAnalysis.riskScore} | {riskAnalysis.summary}
+                      </p>
+                    </div>
+
+                    {riskAnalysis.conditions.map((condition, index) => (
+                      <div 
+                        key={index}
+                        className="condition-card"
+                        style={{
+                          border: `2px solid ${
+                            condition.severity === 'emergency' ? '#EF4444' :
+                            condition.severity === 'high' ? '#F59E0B' :
+                            '#10B981'
+                          }`,
+                          padding: '10px',
+                          borderRadius: '8px',
+                          marginBottom: '8px',
+                          background: '#f8f9fa'
+                        }}
+                      >
+                        <h4 style={{ margin: '0 0 5px' }}>
+                          <span style={{ 
+                            background: condition.severity === 'emergency' ? '#EF4444' :
+                                      condition.severity === 'high' ? '#F59E0B' :
+                                      '#10B981',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            marginRight: '8px'
+                          }}>
+                            {condition.severity.toUpperCase()}
+                          </span>
+                          {condition.name}
+                        </h4>
+                        <p style={{ margin: '5px 0', fontSize: '13px', color: '#333' }}>
+                          {condition.description}
+                        </p>
+                        <p style={{ margin: '5px 0', fontSize: '13px', color: '#4F46E5' }}>
+                          <strong>Recommendation:</strong> {condition.recommendation}
+                        </p>
+                        {condition.tests && condition.tests.length > 0 && (
+                          <div style={{ marginTop: '5px' }}>
+                            <strong style={{ fontSize: '13px' }}>Recommended Tests:</strong>
+                            <ul style={{ margin: '3px 0 0', paddingLeft: '20px' }}>
+                              {condition.tests.map((test, idx) => (
+                                <li key={idx} style={{ fontSize: '13px' }}>{test}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-cancel" onClick={() => setShowAddVital(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary" disabled={loading}>
+                  {loading ? (
+                    <><i className="fas fa-spinner fa-spin"></i> Saving...</>
+                  ) : (
+                    <><i className="fas fa-save"></i> Save Vitals</>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── VIEW VITAL DETAILS MODAL ─── */}
+      {showVitalModal && selectedPatient && (
+        <div className="modal-overlay" onClick={() => setShowVitalModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>
+                <i className="fas fa-heartbeat" style={{ color: '#534AB7' }}></i>
+                Vital Details - {selectedPatient.patient_name || getPatientName(selectedPatient.patient_id)}
+              </h2>
+              <button className="modal-close" onClick={() => setShowVitalModal(false)}>
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+            <div className="modal-body">
+              {/* ─── RISK SUMMARY ─── */}
+              {(() => {
+                const risk = getPatientRiskLevel(selectedPatient);
+                return (
+                  <div className="risk-summary" style={{ 
+                    background: risk.color + '15', 
+                    border: `2px solid ${risk.color}`,
+                    borderRadius: '12px',
+                    padding: '1rem',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h3 style={{ color: risk.color, margin: 0 }}>
+                          <i className={`fas ${risk.icon}`}></i> {risk.label}
+                        </h3>
+                        {risk.warnings.length > 0 && (
+                          <p style={{ margin: '0.3rem 0 0', color: '#6b7280', fontSize: '0.85rem' }}>
+                            <strong>Concerns:</strong> {risk.warnings.join(', ')}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: risk.color }}>
+                        Score: {risk.riskScore}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="vital-details-grid">
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Temperature</span>
+                  <span className="vital-detail-value">{selectedPatient.temperature || 'N/A'} °C</span>
+                  <span className="vital-detail-status">
+                    {(() => {
+                      const temp = getTemperatureStatus(selectedPatient.temperature);
+                      return <span style={{ color: temp.color, fontSize: '0.75rem', fontWeight: '500' }}>{temp.label}</span>;
+                    })()}
+                  </span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Heart Rate</span>
+                  <span className="vital-detail-value">{selectedPatient.heart_rate || 'N/A'} bpm</span>
+                  <span className="vital-detail-status">
+                    {(() => {
+                      const hr = getHeartRateStatus(selectedPatient.heart_rate);
+                      return <span style={{ color: hr.color, fontSize: '0.75rem', fontWeight: '500' }}>{hr.label}</span>;
+                    })()}
+                  </span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Blood Pressure</span>
+                  <span className="vital-detail-value">
+                    {selectedPatient.blood_pressure_systolic && selectedPatient.blood_pressure_diastolic ?
+                      `${selectedPatient.blood_pressure_systolic}/${selectedPatient.blood_pressure_diastolic}` :
+                      'N/A'
+                    }
+                  </span>
+                  <span className="vital-detail-status">
+                    {(() => {
+                      const bp = getBPStatus(selectedPatient.blood_pressure_systolic, selectedPatient.blood_pressure_diastolic);
+                      return <span style={{ color: bp.color, fontSize: '0.75rem', fontWeight: '500' }}>{bp.label}</span>;
+                    })()}
+                  </span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Oxygen Saturation</span>
+                  <span className="vital-detail-value">{selectedPatient.oxygen_saturation || 'N/A'} %</span>
+                  <span className="vital-detail-status">
+                    {(() => {
+                      const o2 = getO2Status(selectedPatient.oxygen_saturation);
+                      return <span style={{ color: o2.color, fontSize: '0.75rem', fontWeight: '500' }}>{o2.label}</span>;
+                    })()}
+                  </span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Blood Glucose</span>
+                  <span className="vital-detail-value">{selectedPatient.blood_glucose || 'N/A'} mmol/L</span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Weight</span>
+                  <span className="vital-detail-value">{selectedPatient.weight || 'N/A'} kg</span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Height</span>
+                  <span className="vital-detail-value">{selectedPatient.height || 'N/A'} cm</span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">BMI</span>
+                  <span className="vital-detail-value">
+                    {selectedPatient.weight && selectedPatient.height ?
+                      ((selectedPatient.weight / ((selectedPatient.height/100) ** 2)).toFixed(1)) :
+                      'N/A'
+                    }
+                  </span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Respiratory Rate</span>
+                  <span className="vital-detail-value">{selectedPatient.respiratory_rate || 'N/A'}</span>
+                </div>
+                <div className="vital-detail-item">
+                  <span className="vital-detail-label">Pain Score</span>
+                  <span className="vital-detail-value">{selectedPatient.pain_score || 'N/A'}/10</span>
+                </div>
+                {selectedPatient.symptoms && (
+                  <div className="vital-detail-item full-width">
+                    <span className="vital-detail-label">Symptoms</span>
+                    <span className="vital-detail-value">
+                      {selectedPatient.symptoms.split(',').map(s => s.trim()).join(' • ')}
+                    </span>
+                  </div>
+                )}
+                <div className="vital-detail-item full-width">
+                  <span className="vital-detail-label">Recorded At</span>
+                  <span className="vital-detail-value">{formatDate(selectedPatient.recorded_at || selectedPatient.created_at)}</span>
+                </div>
+                {selectedPatient.notes && (
+                  <div className="vital-detail-item full-width">
+                    <span className="vital-detail-label">Notes</span>
+                    <span className="vital-detail-value">{selectedPatient.notes}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowVitalModal(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default Vitals;
+

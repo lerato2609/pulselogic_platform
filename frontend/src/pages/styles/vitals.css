@@ -1,0 +1,984 @@
+/* ============================================================
+   PULSELOGIC - VITALS PAGE
+   Sidebar + form visible together
+   ============================================================ */
+
+:root {
+  --vitals-sidebar-width: 260px;
+  --vitals-bg: #f4f7fb;
+  --vitals-card: #ffffff;
+  --vitals-border: #e2e8f0;
+  --vitals-text: #172033;
+  --vitals-muted: #64748b;
+  --vitals-blue: #2563eb;
+  --vitals-green: #16a34a;
+  --vitals-red: #dc2626;
+  --vitals-orange: #f59e0b;
+}
+
+
+/* ============================================================
+   MAIN PAGE LAYOUT
+   ============================================================ */
+
+.vitals-container {
+  min-height: 100vh;
+  width: 100%;
+  background: var(--vitals-bg);
+  overflow-x: hidden;
+}
+
+
+/*
+   IMPORTANT:
+   Sidebar is on the left.
+   Vitals page starts AFTER sidebar.
+*/
+
+.vitals-main {
+  margin-left: var(--vitals-sidebar-width);
+  width: calc(100% - var(--vitals-sidebar-width));
+  min-height: 100vh;
+  min-width: 0;
+  background: var(--vitals-bg);
+}
+
+
+/* ============================================================
+   PAGE CONTENT
+   ============================================================ */
+
+.vitals-content {
+  width: 100%;
+  max-width: 100%;
+  padding: 22px 24px 40px;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+
+/* ============================================================
+   PAGE HEADER
+   ============================================================ */
+
+.vitals-page-header {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.vitals-page-header h1 {
+  margin: 0;
+  color: var(--vitals-text);
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.vitals-page-header p {
+  margin: 6px 0 0;
+  color: var(--vitals-muted);
+  font-size: 14px;
+}
+
+
+/* ============================================================
+   GENERAL PANEL
+   ============================================================ */
+
+.vitals-panel,
+.clinical-assessment-panel {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+
+  background: var(--vitals-card);
+
+  border: 1px solid var(--vitals-border);
+  border-radius: 14px;
+
+  padding: 20px;
+
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.03),
+    0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.vitals-panel h2,
+.clinical-assessment-panel h2 {
+  margin: 0 0 8px;
+  color: var(--vitals-text);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.panel-description {
+  margin: 0 0 15px;
+  color: var(--vitals-muted);
+  font-size: 13px;
+}
+
+
+/* ============================================================
+   ERROR
+   ============================================================ */
+
+.vitals-error {
+  width: 100%;
+  box-sizing: border-box;
+
+  margin-bottom: 18px;
+  padding: 13px 15px;
+
+  border: 1px solid #fecaca;
+  border-radius: 9px;
+
+  background: #fef2f2;
+
+  color: #991b1b;
+  font-weight: 700;
+}
+
+
+/* ============================================================
+   PATIENT SELECTION
+   ============================================================ */
+
+.patient-table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 18px;
+
+  margin-bottom: 18px;
+}
+
+.patient-table-header h2 {
+  margin-bottom: 5px;
+}
+
+.patient-table-header p {
+  margin: 0;
+  color: var(--vitals-muted);
+}
+
+.patient-search {
+  width: 280px;
+  max-width: 100%;
+
+  padding: 11px 13px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+
+  background: #ffffff;
+
+  font-size: 14px;
+}
+
+.patient-search:focus {
+  outline: none;
+
+  border-color: var(--vitals-blue);
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+
+/* ============================================================
+   PATIENT TABLE
+   ============================================================ */
+
+.patient-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+
+  border: 1px solid var(--vitals-border);
+  border-radius: 10px;
+}
+
+.patient-selection-table {
+  width: 100%;
+  min-width: 680px;
+
+  border-collapse: collapse;
+
+  background: #ffffff;
+}
+
+.patient-selection-table thead {
+  background: #f8fafc;
+}
+
+.patient-selection-table th {
+  padding: 12px 14px;
+
+  text-align: left;
+
+  color: #475569;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.patient-selection-table td {
+  padding: 13px 14px;
+
+  border-top: 1px solid #edf2f7;
+
+  color: #334155;
+
+  font-size: 14px;
+}
+
+.patient-selection-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.patient-selection-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.patient-id-cell {
+  color: #1d4ed8 !important;
+  font-weight: 800;
+}
+
+.patient-status-badge {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 5px 10px;
+
+  border-radius: 999px;
+
+  background: #e0f2fe;
+
+  color: #0369a1;
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.attend-patient-button {
+  border: none;
+
+  padding: 9px 17px;
+
+  border-radius: 8px;
+
+  background: var(--vitals-blue);
+
+  color: #ffffff;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.attend-patient-button:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   SELECTED PATIENT BAR
+   ============================================================ */
+
+.selected-patient-bar {
+  grid-column: 1 / -1;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 15px 18px;
+
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+
+  background: #eff6ff;
+}
+
+.selected-patient-label {
+  display: block;
+
+  margin-bottom: 4px;
+
+  color: #64748b;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+}
+
+.selected-patient-bar strong {
+  display: block;
+
+  color: #1e40af;
+
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.change-patient-button {
+  border: 1px solid #bfdbfe;
+
+  border-radius: 8px;
+
+  padding: 9px 14px;
+
+  background: #ffffff;
+
+  color: #1e40af;
+
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+
+/* ============================================================
+   VITAL FORM LAYOUT
+   ============================================================ */
+
+/*
+   The form uses two columns on desktop.
+
+   This makes the sidebar visible AND gives enough room
+   for the vitals form.
+*/
+
+.vitals-content form {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 16px;
+}
+
+
+/*
+   Individual vital cards use half width.
+*/
+
+.vital-reading-panel {
+  margin: 0;
+}
+
+
+/*
+   Bigger sections use the full row.
+*/
+
+.vitals-content form >
+.vitals-panel:not(.vital-reading-panel) {
+  grid-column: 1 / -1;
+}
+
+.clinical-assessment-panel {
+  grid-column: 1 / -1;
+}
+
+.vitals-actions {
+  grid-column: 1 / -1;
+}
+
+
+/* ============================================================
+   VITAL INPUT
+   ============================================================ */
+
+.vital-input-group {
+  width: 100%;
+  min-width: 0;
+
+  margin-top: 14px;
+}
+
+.vital-input-group label {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #334155;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.vital-input-row {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  width: 100%;
+}
+
+.vital-input {
+  flex: 1;
+
+  width: 100%;
+  min-width: 0;
+
+  box-sizing: border-box;
+
+  padding: 11px 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.vital-input:focus {
+  outline: none;
+
+  border-color: var(--vitals-blue);
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.vital-unit {
+  min-width: 65px;
+
+  color: #64748b;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+
+/* ============================================================
+   BLOOD PRESSURE / OTHER INPUT GRIDS
+   ============================================================ */
+
+.two-column-input {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+.three-column-input {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+
+/* ============================================================
+   LIVE VITAL INTERPRETATION
+   ============================================================ */
+
+.vital-status {
+  margin-top: 14px;
+
+  padding: 12px 13px;
+
+  border-radius: 8px;
+
+  border-left: 5px solid;
+
+  line-height: 1.4;
+}
+
+.vital-status strong {
+  display: block;
+
+  margin-bottom: 4px;
+
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.vital-status p {
+  margin: 0;
+
+  font-size: 13px;
+}
+
+.vital-status-normal {
+  border-color: #16a34a;
+
+  background: #f0fdf4;
+
+  color: #166534;
+}
+
+.vital-status-warning {
+  border-color: #f59e0b;
+
+  background: #fffbeb;
+
+  color: #92400e;
+}
+
+.vital-status-critical {
+  border-color: #dc2626;
+
+  background: #fef2f2;
+
+  color: #991b1b;
+}
+
+
+/* ============================================================
+   SYMPTOMS
+   ============================================================ */
+
+.symptom-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(4, minmax(0, 1fr));
+
+  gap: 9px;
+
+  margin-top: 15px;
+}
+
+.symptom-button {
+  min-height: 42px;
+
+  padding: 9px 11px;
+
+  border: 1px solid #dbe1e8;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #475569;
+
+  text-align: left;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.symptom-button:hover {
+  border-color: var(--vitals-blue);
+
+  background: #f8fbff;
+}
+
+.symptom-selected {
+  border-color: var(--vitals-blue);
+
+  background: #dbeafe;
+
+  color: #1d4ed8;
+}
+
+
+/* ============================================================
+   FINAL ASSESSMENT
+   ============================================================ */
+
+.clinical-assessment-panel {
+  margin: 0;
+
+  border: 1px solid #dbe3ed;
+
+  background: #ffffff;
+}
+
+.patient-risk {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  margin: 16px 0;
+
+  padding: 18px;
+
+  border-radius: 10px;
+
+  text-align: center;
+
+  font-size: 23px;
+  font-weight: 900;
+}
+
+.patient-risk-normal {
+  border: 2px solid #16a34a;
+
+  background: #dcfce7;
+
+  color: #166534;
+}
+
+.patient-risk-emergency {
+  border: 2px solid #dc2626;
+
+  background: #fee2e2;
+
+  color: #991b1b;
+}
+
+.screening-warning {
+  padding: 11px 13px;
+
+  border-radius: 8px;
+
+  background: #f8fafc;
+
+  color: #64748b;
+
+  font-size: 12px;
+}
+
+
+/* ============================================================
+   CHRONIC CONDITIONS
+   ============================================================ */
+
+.chronic-section {
+  margin-top: 22px;
+}
+
+.chronic-section h3 {
+  margin: 0 0 15px;
+
+  color: #172033;
+
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.chronic-condition-list {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 14px;
+}
+
+.chronic-condition-card {
+  min-width: 0;
+
+  padding: 16px;
+
+  border: 1px solid #ddd6fe;
+  border-left: 5px solid #7c3aed;
+  border-radius: 9px;
+
+  background: #faf8ff;
+}
+
+.chronic-condition-card h4 {
+  margin: 0 0 10px;
+
+  color: #5b21b6;
+
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.chronic-condition-card p {
+  margin: 6px 0;
+
+  color: #475569;
+
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.further-tests {
+  margin-top: 13px;
+  padding-top: 12px;
+
+  border-top: 1px solid #ddd6fe;
+}
+
+.further-tests strong {
+  color: #172033;
+
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.further-tests ul {
+  margin: 8px 0 0;
+
+  padding-left: 20px;
+}
+
+.further-tests li {
+  margin-bottom: 5px;
+
+  color: #334155;
+
+  font-size: 12px;
+}
+
+.no-chronic-condition {
+  padding: 15px;
+
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+
+  background: #f0fdf4;
+
+  color: #166534;
+
+  font-weight: 700;
+}
+
+
+/* ============================================================
+   NOTES
+   ============================================================ */
+
+.vitals-notes {
+  width: 100%;
+  min-height: 100px;
+
+  box-sizing: border-box;
+
+  padding: 12px;
+
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  color: #0f172a;
+
+  resize: vertical;
+
+  font-family: inherit;
+}
+
+.vitals-notes:focus {
+  outline: none;
+
+  border-color: var(--vitals-blue);
+
+  box-shadow:
+    0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+
+/* ============================================================
+   COMPLETE BUTTON
+   ============================================================ */
+
+.vitals-actions {
+  display: flex;
+
+  justify-content: flex-end;
+
+  padding: 4px 0 30px;
+}
+
+.complete-vitals-button {
+  min-width: 250px;
+
+  padding: 13px 22px;
+
+  border: none;
+  border-radius: 9px;
+
+  background: #16a34a;
+
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 800;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.complete-vitals-button:hover:not(:disabled) {
+  background: #15803d;
+
+  transform: translateY(-1px);
+}
+
+.complete-vitals-button:disabled {
+  background: #94a3b8;
+
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   LOADING / EMPTY
+   ============================================================ */
+
+.vitals-loading,
+.vitals-empty {
+  padding: 30px 15px;
+
+  text-align: center;
+
+  color: #64748b;
+
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   LAPTOP / SMALL DESKTOP
+   ============================================================ */
+
+@media (max-width: 1200px) {
+
+  :root {
+    --vitals-sidebar-width: 240px;
+  }
+
+  .symptom-grid {
+    grid-template-columns:
+      repeat(3, minmax(0, 1fr));
+  }
+
+  .chronic-condition-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 950px) {
+
+  /*
+     Keep sidebar space if your Sidebar remains visible.
+  */
+
+  :root {
+    --vitals-sidebar-width: 220px;
+  }
+
+  .vitals-content {
+    padding: 18px;
+  }
+
+  .vitals-content form {
+    grid-template-columns: 1fr;
+  }
+
+  .vital-reading-panel {
+    grid-column: 1 / -1;
+  }
+
+  .symptom-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .three-column-input {
+    grid-template-columns: 1fr;
+  }
+
+  .two-column-input {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+  /*
+     If your Sidebar component changes to a mobile drawer,
+     remove the sidebar offset.
+  */
+
+  .vitals-main {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .vitals-content {
+    padding: 14px;
+  }
+
+  .patient-table-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .patient-search {
+    width: 100%;
+  }
+
+  .selected-patient-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .two-column-input,
+  .three-column-input {
+    grid-template-columns: 1fr;
+  }
+
+  .symptom-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .patient-risk {
+    font-size: 19px;
+  }
+
+  .complete-vitals-button {
+    width: 100%;
+  }
+}
+
+
+/* ============================================================
+   VERY SMALL MOBILE
+   ============================================================ */
+
+@media (max-width: 430px) {
+
+  .symptom-grid {
+    grid-template-columns: 1fr;
+  }
+}
